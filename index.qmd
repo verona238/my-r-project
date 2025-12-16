@@ -8,7 +8,7 @@ editor: visual
 lang: ru
 toc: true
 number-sections: false
-theme: minty
+theme: spacelab
 link-external-newwindow: true
 embed-resources: true
 standalone: true
@@ -16,7 +16,9 @@ standalone: true
 
 ## О компании
 
-[**Crosstech Solutions Group**](https://ct-sg.ru/) (далее – **CTSG/КТСГ**) – российский разработчик инновационных решений для комплексной защиты информации бизнеса. Компания предлагает готовые решения, осуществляет заказную разработку и предоставляет ИТ-услуги в области кибербезопасности. Представлена на рынке ИБ с 2018 года. Продуктовый портфель КТСГ на сегодняшний день насчитывает 11 продуктов. Все они разработаны на основе глубоких исследований рынка информационной безопасности и закрепили за собой статус высокоэффективных средств защиты информации, пройдя апробацию в крупнейших компаниях различных отраслей экономики России. ИБ-продукты включены в реестр отечественного ПО Минцифры России и рекомендованы для импортозамещения на российских предприятиях.
+[**Crosstech Solutions Group**](https://ct-sg.ru/) (далее – **CTSG/КТСГ**) – российский разработчик инновационных решений для комплексной защиты информации бизнеса. Компания предлагает готовые решения, осуществляет заказную разработку и предоставляет ИТ-услуги в области кибербезопасности. Представлена на рынке ИБ с 2018 года. 
+
+Продуктовый портфель КТСГ на сегодняшний день насчитывает 11 продуктов. Все они разработаны на основе глубоких исследований рынка информационной безопасности и закрепили за собой статус высокоэффективных средств защиты информации, пройдя апробацию в крупнейших компаниях различных отраслей экономики России. ИБ-продукты включены в реестр отечественного ПО Минцифры России и рекомендованы для импортозамещения на российских предприятиях.
 
 Компания активно развивается не только со стороны разработки и поставки ПО, но и со стороны PR и маркетинга. Так, компания ведет соц. сети для повышения узнаваемости продуктов и развития бренда:
 
@@ -26,8 +28,239 @@ standalone: true
 
 ## Цель исследования
 
-В рамках учебной работы представлен анализ публикационной активности компании на Хабре. Здесь я рассмотрела
+В рамках учебной работы представлен анализ публикационной активности компании на Хабре. Я применила количественные методы, чтобы решить следующие задачи:
 
-```{r}
-1 + 1
+-  определить самые популярные статьи компании с учетом нескольких показателей;
+-  выявить тематические направления, вызывающие наибольший интерес у аудитории;
+-  визуализировать полученные результаты.
+
+Я получила большое удовольствое в процессе работы. Надеюсь, тебе понравятся ее результаты ;)
+
+Поехали!
+
+## Веб-скрапинг
+
+На начальном этапе я скрапила все опубликованные статьи компании на Хабре. В основном работала с пакетом **rvest**, но в одном случае понадобилось открыть сессию через **chromote**. Но об этом позже.
+
+Сначала привязала все библиотеки.
+
+```{r message=FALSE, warning=FALSE}
+library(rvest)
+library(tidyverse)
+library(polite)
+library(xml2)
+library(chromote)
+library(lubridate)
+```
+
+Собрала названия всех статей и ссылки на них. Привела это к тайди-формату и подготовила первую таблицу.
+
+```{r message=FALSE, warning=FALSE}
+url <- "https://habr.com/ru/companies/ctsg/articles/"
+
+# создаю "виртуальный браузер" для легитимизации действий парсера
+session <- bow(url)
+html <- scrape(session)
+
+# сохраняю себе названия статей, класс определила через SelectorGadget
+elements <- html |> 
+  html_elements(".tm-title__link")
+
+# сохраняю таблицу, в которую складываю названия статей и ссылки на них
+# все это хранится в теге "a"
+articles <- tibble(
+  title = elements |>
+    html_text2(),
+  href = elements |> 
+    html_attr("href")
+)
+
+# добавляю протокол и домен к "половинчатым" сслыкам
+articles <- articles |> 
+  mutate(link = str_c("https://habr.com", href)) |> 
+  select(-href)
+
+# сохраняю вектор ссылок на статьи
+urls <- articles |> 
+  pull(link)
+```
+
+По итогу получилась такая табличка.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+library(kableExtra)
+library(gt)
+
+articles |>
+  gt() |>
+  opt_table_outline() |>
+
+  # Цвет текста (чуть темнее базового spacelab)
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # Шапка таблицы
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # Hover-эффект для строк
+  opt_css(
+    css = "
+      tbody tr:hover {
+        background-color: #f7fbff;
+      }
+    "
+)
+```
+
+Затем написала функцию, которая пройдется по всей таблице с ссылками на статьи и соберет нужные мне для анализа данные. В данном случае функция будет "вытаскивать":
+
+-   тексты статей;
+-   дата;
+-   время публикации;
+-   время чтения;
+-   количество голосов (грубо говоря, лайков);
+-   количество добавлений в избранное;
+-   число комментариев;
+-   теги, хабы;
+-   уровень сложности текста.
+
+
+```{r message=FALSE, warning=FALSE}
+get_article_polite <- function(url) {
+  bow_obj <- bow(url)
+  
+  html_page <- scrape(bow_obj)
+  
+  months_dict <- c(
+    "янв" = "01",
+    "фев" = "02",
+    "мар" = "03",
+    "апр" = "04",
+    "мая" = "05",
+    "июн" = "06",
+    "июл" = "07",
+    "авг" = "08",
+    "сен" = "09",
+    "окт" = "10",
+    "ноя" = "11",
+    "дек" = "12"
+  )
+  
+  date = html_page |> 
+    html_elements(".tm-article-presenter__snippet time") |> 
+    html_text2() |> 
+    str_replace(" в ", " ") |>
+    str_replace("\\d+:\\d+", "")
+  
+  if (!str_detect(date, "202")) {date <- paste(date, year(Sys.Date()))}
+  
+  res = tibble(
+    text = html_page |>
+      html_elements(".article-body") |> 
+      html_text2() |> 
+      str_squish() |>
+      str_remove("^\\[\\] "),
+    date = date |> 
+      str_squish() |> 
+      str_replace_all(months_dict) |> 
+      dmy(),
+    time = html_page |> 
+      html_elements(".tm-article-presenter__snippet time") |> 
+      html_text2() |> 
+      str_extract("\\d+:\\d+") |> 
+      hm(),
+    read_time_min = html_page |> 
+      html_elements(".tm-article-presenter__snippet .tm-article-reading-time__label") |> 
+      html_text2() |> 
+      str_extract("\\d+") |> 
+      as.integer(),
+    votes = html_page |> 
+      html_element(".tm-votes-lever__score_appearance-article span, .votes-switcher") |> 
+      html_text2() |> 
+      str_extract("(?<=\\+).") |>  # без этой регулярки отображается доп. инфа, необходимо взять только последнее число
+      as.integer(),
+    mark = html_page |> 
+      html_elements(".tm-article-sticky-panel__icons .bookmarks-button") |> 
+      html_text2() |> 
+      str_remove("Добавить в закладки") |> 
+      as.integer(), 
+    num_of_comments = html_page |> 
+      html_elements(".tm-article-sticky-panel__icons .article-comments-counter-link-wrapper") |> 
+      html_text2() |> 
+      str_remove("Комментарии") |> 
+      as.integer(),
+    tags = html_page |> 
+      html_elements(".tag-list") |> 
+      html_text2() |> 
+      str_extract_all("(?<=\\[).*?(?=\\])") |> 
+      unlist() |>
+      paste(collapse = ", "),
+    hubs = html_page |> 
+      html_elements(".tm-article-presenter__meta-list+ .tm-article-presenter__meta-list") |> 
+      html_text2() |> 
+      str_extract_all("(?<=\\[).*?(?=\\])") |> 
+      unlist() |>
+      paste(collapse = ", "),
+    complexity_label = html_page |> 
+      html_element(".tm-article-complexity_complexity-medium .tm-article-complexity__label") |> 
+      html_text2()
+  )
+  
+  return(res)
+  
+}
+```
+
+Применяю функцию ко всем статьям через итератор
+```{r eval=FALSE}
+articles_ctsg <- map_df(urls, get_article_polite, .id = "id")
+```
+
+И видим следующие результаты.
+
+```{r echo=FALSE}
+load("articles_ctsg.RData")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+library(kableExtra)
+library(gt)
+
+articles_ctsg |>
+  gt() |>
+  opt_table_outline() |>
+
+  # Цвет текста (чуть темнее базового spacelab)
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # Шапка таблицы
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # Hover-эффект для строк
+  opt_css(
+    css = "
+      tbody tr:hover {
+        background-color: #f7fbff;
+      }
+    "
+)
 ```
