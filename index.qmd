@@ -225,42 +225,94 @@ get_article_polite <- function(url) {
 articles_ctsg <- map_df(urls, get_article_polite, .id = "id")
 ```
 
-И видим следующие результаты.
+И видим следующие результаты. В таблице ниже в некоторых ячейках обрезаны строки, чтобы визуальнее это смотрелось приятнее. 
 
 ```{r echo=FALSE}
-load("articles_ctsg.RData")
+load("data/articles_ctsg.RData")
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-library(knitr)
-library(kableExtra)
-library(gt)
 
-articles_ctsg |>
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+truncate_words <- function(x, n = 8) {
+  x <- stringr::str_squish(x)
+  words <- stringr::str_split(x, "\\s+")
+  vapply(words, function(w) {
+    if (length(w) <= n) {
+      paste(w, collapse = " ")
+    } else {
+      paste(c(w[1:n], "…"), collapse = " ")
+    }
+  }, character(1))
+}
+
+library(gt)
+library(htmltools)
+
+gt_tbl <- articles_ctsg |>
+  mutate(
+    text = truncate_words(text,  n = 8),
+    tags = truncate_words(tags,  n = 8),
+    hubs = truncate_words(hubs,  n = 8)
+  ) |>
   gt() |>
   opt_table_outline() |>
 
-  # Цвет текста (чуть темнее базового spacelab)
+  # вертикальные линии между колонками
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # горизонтальные линии между строками
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+
+  # стиль текста
   tab_style(
     style = cell_text(color = "#2f3a45"),
     locations = cells_body()
   ) |>
 
-  # Шапка таблицы
+  # шапка
   tab_style(
     style = list(
       cell_fill(color = "#eef5ff"),
       cell_text(weight = "bold", color = "#2f3a45")
     ),
     locations = cells_column_labels()
-  ) |>
+  )
 
-  # Hover-эффект для строк
-  opt_css(
-    css = "
-      tbody tr:hover {
-        background-color: #f7fbff;
-      }
-    "
+div(
+  style = "
+    max-height: 420px;
+    max-width: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 2px;
+  ",
+  gt_tbl
 )
+
 ```
+
