@@ -16,7 +16,7 @@ standalone: true
 
 ## О компании
 
-[**Crosstech Solutions Group**](https://ct-sg.ru/) (далее – **CTSG/КТСГ**) – российский разработчик инновационных решений для комплексной защиты информации бизнеса. Компания предлагает готовые решения, осуществляет заказную разработку и предоставляет ИТ-услуги в области кибербезопасности. Представлена на рынке ИБ с 2018 года. 
+[**Crosstech Solutions Group**](https://ct-sg.ru/) (далее – **CTSG/КТСГ**) – российский разработчик инновационных решений для комплексной защиты информации бизнеса. Компания предлагает готовые решения, осуществляет заказную разработку и предоставляет ИТ-услуги в области кибербезопасности. Представлена на рынке ИБ с 2018 года.
 
 Продуктовый портфель КТСГ на сегодняшний день насчитывает 11 продуктов. Все они разработаны на основе глубоких исследований рынка информационной безопасности и закрепили за собой статус высокоэффективных средств защиты информации, пройдя апробацию в крупнейших компаниях различных отраслей экономики России. ИБ-продукты включены в реестр отечественного ПО Минцифры России и рекомендованы для импортозамещения на российских предприятиях.
 
@@ -30,9 +30,9 @@ standalone: true
 
 В рамках учебной работы представлен анализ публикационной активности компании на Хабре. Я применила количественные методы, чтобы решить следующие задачи:
 
--  определить самые популярные статьи компании с учетом нескольких показателей;
--  выявить тематические направления, вызывающие наибольший интерес у аудитории;
--  визуализировать полученные результаты.
+-   определить самые популярные статьи компании с учетом нескольких показателей;
+-   выявить тематические направления, вызывающие наибольший интерес у аудитории;
+-   визуализировать полученные результаты.
 
 Я получила большое удовольствое в процессе работы. Надеюсь, тебе понравятся ее результаты ;)
 
@@ -55,7 +55,7 @@ library(lubridate)
 
 Собрала названия всех статей и ссылки на них. Привела это к тайди-формату и подготовила первую таблицу.
 
-```{r message=FALSE, warning=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE}
 url <- "https://habr.com/ru/companies/ctsg/articles/"
 
 # создаю "виртуальный браузер" для легитимизации действий парсера
@@ -88,6 +88,7 @@ urls <- articles |>
 По итогу получилась такая табличка.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/articles.RData")
 library(knitr)
 library(kableExtra)
 library(gt)
@@ -132,7 +133,6 @@ articles |>
 -   число комментариев;
 -   теги, хабы;
 -   уровень сложности текста.
-
 
 ```{r message=FALSE, warning=FALSE}
 get_article_polite <- function(url) {
@@ -221,17 +221,16 @@ get_article_polite <- function(url) {
 ```
 
 Применяю функцию ко всем статьям через итератор
+
 ```{r eval=FALSE}
 articles_ctsg <- map_df(urls, get_article_polite, .id = "id")
 ```
 
-И видим следующие результаты. В таблице ниже в некоторых ячейках обрезаны строки, чтобы визуальнее это смотрелось приятнее. 
+И в результате получаем следующее. В таблице ниже в некоторых ячейках обрезаны строки, чтобы визуальнее это смотрелось приятнее. На итоговый датасет я оставлю ссылку для скачивания.
 
 ```{r echo=FALSE}
 load("data/articles_ctsg.RData")
 ```
-
-
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 truncate_words <- function(x, n = 8) {
@@ -316,3 +315,377 @@ div(
 
 ```
 
+Далее делаю кое-какие преобразования, чтобы можно было собрать отдельную статистику по дням и по времени.
+
+```{r message=FALSE, warning=FALSE}
+months_dict2 <- c(
+  "янв" = "Jan",
+  "фев" = "Feb",
+  "мар" = "Mar",
+  "апр" = "Apr",
+  "май" = "May",
+  "июн" = "Jun",
+  "июл" = "Jul",
+  "авг" = "Aug",
+  "сен" = "Sep",
+  "окт" = "Oct",
+  "ноя" = "Nov",
+  "дек" = "Dec"
+)
+
+week_dict <- c(
+  "Пн" = "Mon",
+  "Вт" = "Tue",
+  "Ср" = "Wed",
+  "Чт" = "Thu",
+  "Пт" = "Fri",
+  "Сб" = "Sat",
+  "Вс" = "Sun"
+)
+
+articles_ctsg <- articles_ctsg |> 
+  mutate(year = year(date), 
+         month = month(date, label = TRUE),
+         wday = wday(date, label = TRUE, locale = Sys.getlocale("LC_TIME")),
+         hour = hour(time),
+         length = str_count(text, "\\S+")) |> 
+  mutate(month = str_replace_all(as.character(month), months_dict2), 
+         wday = str_replace_all(as.character(wday), week_dict))
+```
+
+В Хабре не так давно прошло обновление. Теперь он показывает число уникальных пользователей, которые:
+
+-   Открыли публикацию;
+-   Открыли публикацию ИЛИ увидели еe в ленте.
+
+Значит, второй показатель будет заведомо больше. И он позволит HR и PR-менеджерам делать дополнительные выводы в ходе анализа интересов аудитории.
+
+Нажмите на картинку, чтобы ее приблизить.
+
+::: {.js-zoomable-wrap data-full="data/views.png"}
+![](data/views.png){.zoom-hint width="1280px"}
+:::
+
+```{=html}
+<script>
+document.addEventListener('click', function (e) {
+  const wrap = e.target.closest('.js-zoomable-wrap');
+  if (!wrap) return;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  `;
+
+  const img = document.createElement('img');
+  img.src = wrap.dataset.full;
+  img.style.maxWidth = '90%';
+  img.style.maxHeight = '90%';
+
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', () => overlay.remove());
+});
+</script>
+```
+
+Но сам этот элемент является popup-элементом. Т.е. он открывается только при нажатии не него. Через **SelectorGadget** у меня не получилось до него достучаться, поэтому я использовала пакет **chromote**.
+
+И затем я извлекаю количество просмотров. В хабре количество просмотров, превыщающее 1 тысячу, обозначается через К, например, 1.2к - 1200 просмотров. Ниже представлена функция, которая будет извлекать приблизительное число просмотров и переводить его в числовой формат.
+
+```{r eval=FALSE}
+get_article_2 <- function(url) {
+  b <- ChromoteSession$new()
+  
+  b$Network$enable()
+  b$Network$setBlockedURLs(urls = list(
+    "*googletagmanager.com/*",
+    "*google-analytics.com/*",
+    "*analytics.google.com/*",
+    "*mc.yandex.ru/*",
+    "*yandex.ru/ads/*",
+    "*vk.com/rtrg*",
+    "*sentry*"
+  ))
+  b$Page$navigate(url)
+  b$Page$loadEventFired(wait_ = TRUE)
+  Sys.sleep(3)
+  
+  CLICK_SELECTOR <- ".tm-article-presenter__snippet .reach-counter"
+  
+  js_click <- sprintf("
+  (function(){
+    var el = document.querySelector('%s');
+    if (el) { el.click(); return 'clicked'; }
+    else { return 'not found'; }
+  })();
+", CLICK_SELECTOR)
+  
+  res <- b$Runtime$evaluate(js_click)
+  
+  Sys.sleep(2)
+  
+  html <- {
+    doc <- b$DOM$getDocument()
+    root_id <- doc$root$nodeId
+    b$DOM$getOuterHTML(nodeId = root_id)[['outerHTML']]
+  }
+  
+  page <- read_html(html)
+  
+  res = tibble(
+    reach_value = page |>
+      html_element(".tm-modal-window .value") |>
+      html_text2() |> 
+      str_remove(" охват"),
+    unique_readers = page |> 
+      html_element(".publication-metric+ .publication-metric .value") |>
+      html_text2() |> 
+      str_remove(" читател(ей|я|ь)")
+  )
+  
+  return(res)
+  
+}
+
+articles_ctsg_2 <- map_df(urls, get_article_2, .id = "id")
+```
+
+Затем пишу функцию для изменения отображения просмотров статьи. Да, значение получится округленным, но это зато примет более нормализованный вид.
+
+```{r eval=FALSE}
+change_views <- function(vec) {
+  map_int(vec, ~ {
+    x <- .x
+    # если запись содержит символ точки или "К"
+    if (is.na(as.integer(x)) == "TRUE") {
+      # сначала удаляю "K"
+      x <- str_remove(x, "K")
+      # если после удаления "К" есть еще один ненужный элемент - точка
+      if (str_detect(x, "\\.")) {
+        # то удаляем точку
+        x <- str_remove(x, "\\.")
+        # и приписываем два нуля (условно умножаем на тысячу)
+        x <- str_c(x, "00")
+        # переводим к целочисленному типу
+        x <- as.integer(x)
+      } 
+      else {
+        # если точки нет, то просто приписываем 3 нуля (будто умножаем на тысячу)
+        # и переводим к целому типу
+        x <- str_c(x, "000")
+        x <- as.integer(x)
+      }
+    }
+    # если нет ни точки, ни "К", то просто переводим к целому типу данных
+    else {
+      x <- as.integer(x)
+    }
+  })
+}
+```
+
+Применяю функцию к полученному тибблу.
+
+```{r eval = FALSE}
+articles_ctsg_2 <- articles_ctsg_2 |> 
+  mutate(reach_value = change_views(reach_value)) |> 
+  mutate(unique_readers = change_views(unique_readers)) |> 
+  mutate(id = as.integer(id))
+```
+
+И получается такая милая табличка.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/articles_ctsg_2.RData")
+library(knitr)
+library(kableExtra)
+library(gt)
+
+articles_ctsg_2 |>
+  gt() |>
+  opt_table_outline() |>
+  
+  tab_options(
+    table.width = px(500)
+  ) |>
+
+  # Цвет текста (чуть темнее базового spacelab)
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # Шапка таблицы
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # Hover-эффект для строк
+  opt_css(
+    css = "
+      tbody tr:hover {
+        background-color: #f7fbff;
+      }
+    "
+)
+
+```
+
+
+Теперь делаю еще дополнительные преобзования. Во-первых, разделяю колонки с датами на отдельные колонки, добавляю колонку с количеством слов в тексте, и заменяю значения месяцев
+и дней недели по словарям.
+
+```{r eval = FALSE}
+months_dict2 <- c(
+  "янв" = "Jan",
+  "фев" = "Feb",
+  "мар" = "Mar",
+  "апр" = "Apr",
+  "май" = "May",
+  "июн" = "Jun",
+  "июл" = "Jul",
+  "авг" = "Aug",
+  "сен" = "Sep",
+  "окт" = "Oct",
+  "ноя" = "Nov",
+  "дек" = "Dec"
+)
+
+week_dict <- c(
+  "Пн" = "Mon",
+  "Вт" = "Tue",
+  "Ср" = "Wed",
+  "Чт" = "Thu",
+  "Пт" = "Fri",
+  "Сб" = "Sat",
+  "Вс" = "Sun"
+)
+
+articles_ctsg <- articles_ctsg |> 
+  mutate(year = year(date), 
+         month = month(date, label = TRUE),
+         wday = wday(date, label = TRUE, locale = Sys.getlocale("LC_TIME")),
+         hour = hour(time),
+         length = str_count(text, "\\S+")) |> 
+  mutate(month = str_replace_all(as.character(month), months_dict2), 
+         wday = str_replace_all(as.character(wday), week_dict))
+```
+
+Во-вторых, добавляю отдельную колонку с ID статьи. Также преобразовываю общую колонку с временем и отдельную колонку с часами: прибавляю +3 часа, чтобы отображаемое время публикации статьи было московским.
+
+```{r eval = FALSE}
+articles_ctsg <- articles_ctsg |> 
+  mutate(id = as.integer(id),
+         time = time + hours(3),
+         hour = hour + 3)
+
+# добавляю к исходному тибблу с названиями статей и ссылками на них идентификатор
+articles <- articles |> 
+  mutate(id = row_number())
+```
+
+В-третьих, делаю два иннер-джойна (ведь таблиц у меня 3, за раз можно объединить только 2).
+
+```{r eval = FALSE}
+articles_ctsg <- articles_ctsg |> 
+  inner_join(articles_ctsg_2, by = "id")
+
+# объединяю две таблицы через inner join (т.к. здесь нет пропусков)
+articles_ctsg_full <- inner_join(articles, articles_ctsg, by = "id") |> 
+  select(id, title, text, length, link, complexity_label, date, year, month, wday, hour, time, read_time_min, reach_value, unique_readers, votes, mark, num_of_comments, tags, hubs)
+
+```
+
+
+И у меня получается общая таблица со всеми собранными данными.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/articles_ctsg_full.RData")
+
+shorten_url <- function(x) {
+  gsub(
+    "^(https?://[^/]+/[^/]+/).*",
+    "\\1...",
+    x
+  )
+}
+
+gt_tbl <- articles_ctsg_full |>
+  mutate(
+    text = truncate_words(text,  n = 8),
+    tags = truncate_words(tags,  n = 3),
+    hubs = truncate_words(hubs,  n = 3),
+    link = shorten_url(link)
+  ) |>
+  gt() |>
+  opt_table_outline() |>
+
+  # вертикальные линии между колонками
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # горизонтальные линии между строками
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+
+  # стиль текста
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # шапка
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  )
+
+div(
+  style = "
+    max-height: 420px;
+    max-width: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 2px;
+  ",
+  gt_tbl
+)
+
+```
