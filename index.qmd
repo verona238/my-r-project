@@ -315,6 +315,8 @@ div(
 
 ```
 
+
+
 Далее делаю кое-какие преобразования, чтобы можно было собрать отдельную статистику по дням и по времени.
 
 ```{r message=FALSE, warning=FALSE}
@@ -543,7 +545,9 @@ articles_ctsg_2 |>
 ```
 
 
-Теперь делаю еще дополнительные преобзования. Во-первых, разделяю колонки с датами на отдельные колонки, добавляю колонку с количеством слов в тексте, и заменяю значения месяцев
+## Обработка данных
+
+После того как все данные собраны, я делаю дополнительные преобзования. Во-первых, разделяю колонки с датами на отдельные колонки, добавляю колонку с количеством слов в тексте, и заменяю значения месяцев
 и дней недели по словарям.
 
 ```{r eval = FALSE}
@@ -608,7 +612,7 @@ articles_ctsg_full <- inner_join(articles, articles_ctsg, by = "id") |>
 ```
 
 
-И у меня получается общая таблица со всеми собранными данными.
+И у меня получается общая таблица со всеми собранными данными. Целая таблица для скачивания представлена по [ссылке](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/articles_ctsg_full.RData).
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -627,6 +631,203 @@ gt_tbl <- articles_ctsg_full |>
     text = truncate_words(text,  n = 8),
     tags = truncate_words(tags,  n = 3),
     hubs = truncate_words(hubs,  n = 3),
+    link = shorten_url(link)
+  ) |>
+  gt() |>
+  opt_table_outline() |>
+
+  # вертикальные линии между колонками
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # горизонтальные линии между строками
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+
+  # стиль текста
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # шапка
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  )
+
+div(
+  style = "
+    max-height: 420px;
+    max-width: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 2px;
+  ",
+  gt_tbl
+)
+
+```
+
+
+## Анализ данных
+
+Теперь мне было интересно узнать, какие статьи компании оказались самыми популярными. Выводы необходимо делать на основании тех показателей, которые были получены во время сбора данных. 
+
+Так, я решила посмотреть ТОП-5 статей по следующим данным:
+
+-  Просмотры (по первому и второму показателю просмотров Хабра);
+-  Число голосов;
+-  Число добавлений статей в Избранные;
+-  Число комментариев.
+
+```{r message=FALSE, warning=FALSE}
+most_viewed1 <- articles_ctsg_full |> 
+  arrange(desc(unique_readers)) |> 
+  head(5)
+
+most_viewed2 <- articles_ctsg_full |> 
+  arrange(desc(reach_value)) |> 
+  head(5)
+
+most_votes <- articles_ctsg_full |> 
+  arrange(desc(votes)) |> 
+  head(5)
+
+most_marked <- articles_ctsg_full |> 
+  arrange(desc(mark))|> 
+  head(5)
+
+most_commented <- articles_ctsg_full |> 
+  arrange(desc(num_of_comments))|> 
+  head(5)
+```
+
+
+Сохраняю ID тех статей, которые являются наиболее значимыми с разных точек зрения (читатели, охват, оценки, комментарии), и формирует итоговый список “ключевых” публикаций компании. После формирую общую таблицу.
+
+
+```{r message=FALSE, warning=FALSE}
+all_ids <- unique(c(
+  most_viewed1$id,
+  most_viewed2$id,
+  most_votes$id,
+  most_marked$id,
+  most_commented$id
+))
+
+result <- tibble(
+  id = all_ids,
+  in_most_viewed1 = id %in% most_viewed1$id,
+  in_most_viewed2 = id %in% most_viewed2$id,
+  in_most_votes = id %in% most_votes$id,
+  in_most_marked = id %in% most_marked$id,
+  in_most_commented = id %in% most_commented$id
+)
+
+```
+
+
+Здесь мы видим, какие статьи входят во все топы, но еще не хватает некоторой структуры.
+
+
+```{r message=FALSE, warning=FALSE}
+library(knitr)
+library(kableExtra)
+library(gt)
+
+result |>
+  gt() |>
+  opt_table_outline() |>
+  
+  tab_options(
+    table.width = px(500)
+  ) |>
+
+  # Цвет текста (чуть темнее базового spacelab)
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # Шапка таблицы
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # Hover-эффект для строк
+  opt_css(
+    css = "
+      tbody tr:hover {
+        background-color: #f7fbff;
+      }
+    "
+)
+
+```
+
+Поэтому надо просуммировать все строчки и отсортировать по общей сумме. И соединить эту таблицу с последней,
+чтобы она содержала все данные по каждой "топовой" статье.
+
+```{r message=FALSE, warning=FALSE }
+result <- result |> 
+  mutate(total_hits = rowSums(across(starts_with("in_")))) |> 
+  arrange(desc(total_hits)) |> 
+  inner_join(articles_ctsg_full, by = "id") |> 
+  select(total_hits, id, title, text, length, link, complexity_label, date, year, month, wday, hour, time, read_time_min, reach_value, unique_readers, votes, mark, num_of_comments, tags, hubs) |>
+  head(5) |> 
+  mutate(hit_id = row_number()) |> 
+  mutate(hit_id = as.integer(hit_id))
+
+result <- result |> 
+  select(hit_id, total_hits, id, title, text, length, link, complexity_label, date, year, month, wday, hour, time, read_time_min, reach_value, unique_readers, votes, mark, num_of_comments, tags, hubs)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+shorten_url <- function(x) {
+  gsub(
+    "^(https?://[^/]+/[^/]+/).*",
+    "\\1...",
+    x
+  )
+}
+
+gt_tbl <- result |>
+  mutate(
+    text = truncate_words(text,  n = 4),
+    title = truncate_words(title,  n = 3),
+    tags = truncate_words(tags,  n = 2),
+    hubs = truncate_words(hubs,  n = 2),
     link = shorten_url(link)
   ) |>
   gt() |>
