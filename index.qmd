@@ -12,6 +12,10 @@ theme: spacelab
 link-external-newwindow: true
 embed-resources: true
 standalone: true
+bibliography: habr.bib
+csl: habr-simple-numeric.csl
+link-citations: true
+reference-section-title: "Литература"
 ---
 
 ## О компании
@@ -612,7 +616,11 @@ articles_ctsg_full <- inner_join(articles, articles_ctsg, by = "id") |>
 ```
 
 
-И у меня получается общая таблица со всеми собранными данными. Целая таблица для скачивания представлена по [ссылке](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/articles_ctsg_full.RData).
+И у меня получается общая таблица со всеми собранными данными. Целая таблица для скачивания представлена по [ссылке](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/articles_ctsg_full.RData). 
+
+Обращаю внимание, что при воспроизведении кода результаты могут немного изменяться. Это связано с тем, что я
+локально прогнала этот код и подгрузила его в проект, чтобы облегчить работу рендеру. Поэтому у Вас могут быть другие
+показатели как минимум просмотров.
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -813,7 +821,11 @@ result <- result |>
 ```
 
 
+Получилась такая таблица. Забрать целую таблицу можно по [ссылке](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/result.RData). Также дисклеймер, что данные при воспроизведении могут отличаться от представленных.
+
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/result.RData")
 shorten_url <- function(x) {
   gsub(
     "^(https?://[^/]+/[^/]+/).*",
@@ -888,5 +900,215 @@ div(
   ",
   gt_tbl
 )
-
 ```
+
+
+Итого, в общий ТОП-5 вошли следующие статьи:
+
+-   Распознавание лиц на микрокомпьютерах[@habr_1];
+-   Секреты успешного собеседования: как получить оффер технарю[@habr_2];
+-   Как выжить на первом испытательном сроке в IT и не только[@habr_3];
+-   Как тимлиду проводить собеседование так, чтобы кандидат и компания получили от него максимум[@habr_4];
+-   Как создать решение в области контейнерной безопасности: подводные камни, проблемы и их решение[@habr_5].
+
+Чуть позже я попытаюсь сделать выводы о том, почему именно такие статьи оказались наиболоее востребованными
+у аудитории, предварительно рассмотрев некоторые лексические особенности этих текстов. А пока предлагаю ознакомиться с незамысловатой визуаилизацией, которую я подготовила по обработанным данным :)
+
+## Визуализация
+
+Таблицы нам уже могут рассказать некоторую особенность, но визуализация не только дает красивую картинку, но
+и помогает выявить интересные закономерности в данных. Предлагаю ознакомиться с тем, что у меня получилось!
+
+Сделаю замечание, что здесь представлена статистика по ВСЕМ статьям компании на Хабре, а не только по самым популярным.
+
+Сначала как всегда подгружаю библиотеки.
+
+```{r message=FALSE, warning=FALSE}
+library(gridExtra)
+library(grid)
+library(paletteer)
+library(extrafont)
+library(plotly)
+library(dplyr)
+```
+
+Сначала я хочу посмотреть число статей по месяцам. Для этого сначала посчитаю, сколько статей
+за определенный год и период было написано статей.
+
+```{r message=FALSE, warning=FALSE}
+month_order <- c(
+  "Jan","Feb","Mar","Apr","May","Jun",
+  "Jul","Aug","Sep","Oct","Nov","Dec"
+)
+
+years_order <- c(2024, 2025)
+
+articles_ctsg_full_p1 <- articles_ctsg_full |> 
+  count(year, month, sort = FALSE) |> 
+  tidyr::complete(
+    year = years_order,
+    month = month_order,
+    fill = list(n = 0)
+  ) |>
+  mutate(
+    month = factor(month, levels = month_order),
+    year  = factor(year)
+  ) |>
+  rename(count = n)
+```
+
+
+В целом, это уже готово к визуализации. Только делаю некоторые махинации с палитрой и шрифтом. Предварительно скачиваю фон Montserrat, его можно забрать [здесь](https://fonts-online.ru/fonts/montserrat).
+
+
+```{r eval=FALSE}
+font_import()  
+loadfonts(device = "win")
+```
+
+И готовю график. Сначала через **ggplot**, потом "оживляю" график через **plotly**.
+
+
+```{r message=FALSE, warning=FALSE}
+p1 <- articles_ctsg_full_p1 |> 
+  mutate(month = factor(month, levels = month_order),
+         year  = factor(year)) |>
+  ggplot(aes(x = month,
+             y = count,
+             fill = year)) +
+  geom_col(alpha = 0.8, na.rm = TRUE) +
+  scale_fill_manual(name = "Год",
+                    values = c("2024" = "#3A77B9", "2025" = "#385E8C")) +
+  scale_x_discrete(labels = month_order) +
+  labs(title = "Число статей по месяцам",
+       x = NULL, y = NULL) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    panel.grid.major = element_line(color = "grey85", linewidth = 0.4),
+    panel.grid.minor = element_line(color = "grey92", linewidth = 0.3),
+    text = element_text(size = 14, family = "Montserrat Medium"))
+
+ggplotly(p1) |> 
+  layout(
+    legend = list(
+      x = 1.05,
+      y = 0.5,
+      xanchor = "left",
+      yanchor = "middle",
+      title = list(
+        text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Год"
+      )
+    )
+  )
+```
+
+Апрель 2024 года был самым продуктивным годом. 2 из 5 самых популярных статей были опубликованы в этот период.
+
+Теперь рассмотрим статьи по дням недели. Для этого в первую очередь необходимо посчитать число статей по годам и дням недели.
+
+
+```{r message=FALSE, warning=FALSE}
+week_order <- c(
+  "Fri", "Thu", "Wed", "Tue", "Mon" 
+)
+
+years_order <- c(2024, 2025)
+
+articles_ctsg_full_p2 <- articles_ctsg_full |> 
+  count(year, wday, sort = FALSE) |> 
+  tidyr::complete(
+    year = years_order,
+    wday = week_order,
+    fill = list(n = 0)
+  ) |>
+  mutate(
+    year  = factor(year)
+  ) |>
+  rename(count = n)
+```
+
+
+Данные для визуализации готовы! Логика остается та же.
+
+
+```{r message=FALSE, warning=FALSE}
+p2 <- articles_ctsg_full_p2 |>
+  mutate(
+    wday = factor(wday, levels = week_order),
+    year = factor(year)
+  ) |>
+  ggplot(aes(x = wday,
+             y = count,
+             fill = year)) +
+  geom_col(alpha = 0.8, na.rm = TRUE) +
+  coord_flip() +
+  scale_fill_manual(
+    name = "Год",
+    values = c("2024" = "#3A77B9", "2025" = "#385E8C")
+  ) +
+  scale_x_discrete(labels = week_order) +
+  labs(
+    title = "Статьи по дням недели",
+    x = NULL, y = NULL
+  ) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    panel.grid.major = element_line(color = "grey85", linewidth = 0.4),
+    panel.grid.minor = element_line(color = "grey92", linewidth = 0.3),
+    text = element_text(size = 14, family = "Montserrat Medium")
+  )
+
+ggplotly(p2) |> 
+  layout(
+    legend = list(
+      x = 1.05,
+      y = 0.5,
+      xanchor = "left",
+      yanchor = "middle",
+      title = list(
+        text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Год"
+      )
+    )
+  )
+```
+
+
+Самыми "активными" для публикаций днями являются вторник и четверг. Эти дни выбраны не просто так, об этом пишут
+специалисты[@habr_6].
+
+Ну и посмотрим последний (в этом разделе!) график, в котором представлены длины статей по годам.
+
+```{r message=FALSE, warning=FALSE}
+p3 <- articles_ctsg_full |> 
+  ggplot(aes(as.factor(year), length, fill = as.factor(year))) +
+  geom_boxplot(show.legend = FALSE) +
+  scale_fill_manual(
+    name = "Год",
+    values = c("2024" = "#3A77B9", "2025" = "#385E8C")
+  ) +
+  labs(title = "Длина статьи по годам") + 
+  labs(x = NULL, y = NULL) + 
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    panel.grid.major = element_line(color = "grey85", linewidth = 0.4),
+    panel.grid.minor = element_line(color = "grey92", linewidth = 0.3),
+    text = element_text(size = 14, family = "Montserrat Medium")
+  )
+
+ggplotly(p3) |> 
+  layout(
+    legend = list(
+      x = 1.05,
+      y = 0.5,
+      xanchor = "left",
+      yanchor = "middle",
+      title = list(
+        text = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Год"
+      )
+    )
+  )
+```
+
+
+Здесь мы видим, что статистически длиннее статьи были в 2024 году. Выбросы в обе стороны также ярко выражены
+именно в этом году. Могу предложить, что в 2025 году были введены требования оформления статей, которые регламентируют даже длину статьи.

@@ -3,3 +3,9 @@
   cursor: zoom-in;
 }
 
+.csl-entry a {
+  text-decoration: none;
+}
+.csl-entry a[href^="http"] {
+  text-decoration: underline;
+}

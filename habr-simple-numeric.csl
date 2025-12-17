@@ -1,0 +1,31 @@
+<style xmlns="http://purl.org/net/xbiblio/csl" version="1.0" citation-format="numeric">
+  <info>
+    <title>Habr simple numeric</title>
+    <id>http://example.com/habr-simple-numeric</id>
+    <updated>2025-01-01</updated>
+  </info>
+  
+  <!-- Название раздела -->
+  <locale xml:lang="ru">
+    <terms>
+      <term name="bibliography">Литература</term>
+    </terms>
+  </locale>
+
+  <!-- В тексте: [1] -->
+  <citation>
+    <layout>
+      <text variable="title"/>
+    </layout>
+  </citation>
+
+  <!-- В списке: 1. Название // Хабр. URL -->
+  <bibliography>
+    <layout>
+      <text variable="citation-number" suffix=". "/>
+      <text variable="title" suffix=" // "/>
+      <text value="Хабр. " />
+      <text variable="URL"/>
+    </layout>
+  </bibliography>
+</style>

@@ -1,14 +1,18 @@
 project:
   type: website
   output-dir: docs
+  render:
+    - index.qmd
+    - about.qmd
 
 website:
-  title: "my-r-project"
+  title: "CTSG"
   navbar:
     left:
       - href: index.qmd
-        text: Home
-      - about.qmd
+        text: Анализ публикаций 
+      - href: about.qmd
+        text: NLP-анализ
 
 format:
   html:
