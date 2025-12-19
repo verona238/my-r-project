@@ -3,7 +3,7 @@ project:
   output-dir: docs
   render:
     - index.qmd
-    - about.qmd
+    - nlp.qmd
 
 website:
   title: "CTSG"
@@ -11,7 +11,7 @@ website:
     left:
       - href: index.qmd
         text: Анализ публикаций 
-      - href: about.qmd
+      - href: nlp.qmd
         text: NLP-анализ
 
 format:

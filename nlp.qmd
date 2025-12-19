@@ -1,0 +1,647 @@
+---
+title: "Crosstech Solutions Group"
+subtitle: "Лексический анализ публикаций компании на Хабре"
+author: "Назаровская Вероника"
+date: 2025-12-19
+format: html
+editor: visual
+lang: ru
+toc: true
+number-sections: false
+theme: spacelab
+link-external-newwindow: true
+embed-resources: true
+standalone: true
+bibliography: sites.bib
+csl: sites-simple-numeric.csl
+link-citations: true
+reference-section-title: "Литература"
+---
+
+## Введение
+
+В данном разделе представлены результаты комплексного анализа текстов статей, включающего аннотирование, частотный анализ, расчёт TF-IDF, анализ распределения слов с помощью диаграммы Ципфа, сентимент-анализ и построение эмбеддингов.
+
+Ну, обо все по порядку)
+
+## Токенизация и лемматизация
+
+Как обычно подгружаю все необходимые пакеты.
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse) 
+library(tidytext)
+library(udpipe)
+library(stopwords)
+library(wordcloud)
+library(RColorBrewer)
+library(extrafont)
+library(widyr)
+
+```
+
+Теперь загружаю широко известную UdPipe-модель SynTagRus для аннотирования текстов самых популярных статей. Это позволит сделать мне выводы о том, какие темы вызывали у аудитории наиболее бурный интерес.
+
+```{r eval = FALSE}
+russian_model <- udpipe_load_model(file = "russian-syntagrus-ud-2.5-191206.udpipe")
+```
+
+
+В чанке ниже я аннотирую тексты статей и перевожу результат в тиббл.
+
+
+```{r eval = FALSE}
+ctsg_articles_annotate <- udpipe_annotate(russian_model, result$text, doc_id = result$hit_id)
+
+ctsg_articles_pos <- ctsg_articles_annotate |> 
+  as_tibble()
+```
+
+
+Получается примерно такая таблица (при визуализации таблицы я убрала столбец **sentence**, чтобы выглядело опрятнее на странице). Полный вариант тиббла можно забрать ДОБАВИТЬ ССЫЛКУ_здесь.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/ctsg_articles_pos.RData")
+library(knitr)
+library(kableExtra)
+library(gt)
+
+ctsg_articles_pos |>
+  head(10) |> 
+  select(-sentence) |> 
+  gt() |>
+  opt_table_outline() |>
+
+  # Цвет текста (чуть темнее базового spacelab)
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # Шапка таблицы
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # Hover-эффект для строк
+  opt_css(
+    css = "
+      tbody tr:hover {
+        background-color: #f7fbff;
+      }
+    "
+)
+```
+
+Создам еще один тиббл, в котором будут храниться все токены без стоп-слов.
+
+
+```{r eval = FALSE}
+sw <- stopwords(language = "ru", source = "stopwords-iso")
+
+result_words_tidy <- ctsg_articles_pos  |>  
+  filter(!lemma %in% sw)
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/result_words_tidy.RData")
+library(knitr)
+library(kableExtra)
+library(gt)
+
+result_words_tidy |>
+  head(10) |> 
+  select(-sentence) |> 
+  gt() |>
+  opt_table_outline() |>
+
+  # Цвет текста (чуть темнее базового spacelab)
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # Шапка таблицы
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # Hover-эффект для строк
+  opt_css(
+    css = "
+      tbody tr:hover {
+        background-color: #f7fbff;
+      }
+    "
+)
+```
+
+Тут учитываются знаки препинания, но их легко можно будет убрать далее.
+
+Далее я решила построить облако слов из существительных. Мы видим, что наиболее чатыми словами являются, связанные с трудоустройством.
+
+```{r message=FALSE, warning=FALSE}
+set.seed(123)
+nouns <- result_words_tidy  |> 
+  filter(upos %in% c("NOUN")) |> 
+  count(lemma) |> 
+  arrange(-n) 
+
+pal <- RColorBrewer::brewer.pal(9, "Blues")[4:10] 
+wordcloud(nouns$lemma, nouns$n, colors = pal, max.words = 30)
+```
+
+Затем я считаю абсолютную частотность слов в самых популярных статьях. Здесь как раз-таки я убираю знаки препинания, которые создали бы некоторый шум. 
+
+```{r message=FALSE, warning=FALSE}
+freq_counts <- result_words_tidy |> 
+  filter(upos != "PUNCT") |> 
+  count(lemma, doc_id, sort = TRUE) |> 
+  rename(count = n)
+
+#Абсолютная частотность
+freq_counts |> 
+  group_by(doc_id) |> 
+  slice_head(n = 10) |> 
+  ungroup() |> 
+  ggplot(aes(reorder_within(lemma, count, doc_id), count, fill = as.factor(doc_id))) +
+  geom_col(show.legend = F) + 
+  scale_fill_manual(values = pal) +
+  scale_x_reordered() +
+  facet_wrap(~doc_id, nrow = 2, scales = "free") +
+  coord_flip()  +
+  theme_light() +
+  theme(text = element_text(size = 12, family = "Montserrat Medium"),
+        strip.background = element_rect(fill = "#D0CECE"),
+        strip.text = element_text(color = "black")) +
+ xlab(NULL) +
+  ylab(NULL)
+```
+
+Мы видим, что тематически статьи с номерами 2, 3 и 4 будто бы очень близки. Может показаться, что это преждевременные выводы,
+но забегая вперед скажу, что, действительно, в некоторых статьях всего пула статей выделяется топик об особенностях найма сотрудников в компанию. Неудивительно, потому что эта тема по-прежнему очень актуальна, хоть сейчас и нет такого бума вката в ИТ и рынок труда в целом очень изменился.
+
+Но ограничиваться абсолютной частотностью не нужно. Тем более нужно учитывать, что статьи имеют разную длину (минимальная длина текста популярной статьи содержит 1851 слов, а максимальная — 3348). Поэтому смотрим относительную частотность tf-idf.
+
+
+```{r message=FALSE, warning=FALSE}
+tokens_tf <- ctsg_articles_pos |> 
+  mutate(total = nrow(ctsg_articles_pos)) |> 
+  add_count(lemma, sort = TRUE) |> 
+  distinct(doc_id, lemma, total, n) |> 
+  mutate(tf = n / total) |> 
+  arrange(tf)
+```
+
+Как всегда представляю только небольшой фрагмент тиббла. Полную таблицу можно забрать по ВСТАВИТЬссылке.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/tokens_tf.RData")
+tokens_tf |>
+  head(10) |> 
+  gt() |>
+  opt_table_outline() |>
+
+  # Цвет текста (чуть темнее базового spacelab)
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # Шапка таблицы
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # Hover-эффект для строк
+  opt_css(
+    css = "
+      tbody tr:hover {
+        background-color: #f7fbff;
+      }
+    "
+)
+```
+
+
+По полученным данным можно построить гистограмму. Она доказывает распределение слов естественных языков по Закону Ципфа [@site_7].
+
+```{r message=FALSE, warning=FALSE}
+tokens_tf |> 
+  ggplot(aes(tf)) +
+  geom_histogram(show.legend = FALSE, 
+                 fill = "aliceblue", 
+                 color = "grey",
+                 bins = 50) +
+  theme_light()
+```
+
+Вношу последние штрихи и визуализирую результат. 
+
+```{r message=FALSE, warning=FALSE, fig.width=12, fig.height=8}
+ctsg_tfidf <- tokens_tf |> 
+  bind_tf_idf(lemma, doc_id, n)
+
+#наиболее характерные для документов токены
+ctsg_tfidf |> 
+  arrange(-tf_idf) |> 
+  group_by(doc_id) |> 
+  slice_head(n = 10) |> 
+  ungroup() |> 
+  ggplot(aes(reorder_within(lemma, tf_idf, doc_id), tf_idf, fill = as.factor(doc_id))) +
+  geom_col(show.legend = F) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~doc_id, scales = "free", nrow = 2) +
+  scale_x_reordered() +
+  scale_fill_manual(values = pal) +
+  coord_flip() +
+  theme_light() +
+  theme(text = element_text(size = 12, family = "Montserrat Medium"),
+        strip.background = element_rect(fill = "#D0CECE"),
+        strip.text = element_text(color = "black"))
+
+```
+
+Да, здесь мы видим немного другие слова, однако они семантически очень близки с теми, что показал нам анализ
+абсолютных частот.
+Так, мы можем сделать вывод о том, что среди популярных статей мы можем выделить 2 кластера статей:
+
+-  кластер статей о трудоустройстве и софт-скиллах в целом;
+-  кластер технических статей, в которых описываются технологии (причем применяемые/разрабатываемые компанией).
+
+Причем в статье №1 можно сделать вывод о том, что речь идет о машинном обучении для задачи распознавания, а статья
+№5 описывает контейнерные технологии. Неудивительно, что статьи с такой тематикой вошли в ТОП статей компании. Машинное обучение по-прежнему является востребованным топиком в технарском кругу. Контейнерные технологии также не сбавляет свои обороты в популярности среди технарей [@site_8].  
+
+Вот так небольшой анализ частот позволил сделать выводы о содержании статей. Затем это можно расширить и применить для всего пула статей.
+
+
+## Сентимент-анализ
+
+В этом подразделе я рассмотрю анализ эмоционального окраса статей компании на Хабре. Мне кажется, это интересная тема, потому что (по моему сложившемуся мнению) в основном сентимент-анализ применяют для художественной литературы.
+
+Интересно будет узнать, пишут ли технари сухим безэмоциональным языком, или же в некоторых текстах прослеживаются
+положительные или отрицательные коннотации. Давайте узнаем и потом проанализируем полученные результаты :)
+
+Для начала подготовлю Python-окружение для работы с моделью BERT.
+
+```{r eval=FALSE}
+use_python("C:/Users/nazarovskaya.v/AppData/Local/Programs/Python/Python313")
+py_config()
+py_eval("1+1")
+py_module_available("transformers")
+py_module_available("torch")
+transformers <- import("transformers")
+
+sentiment_pipeline <- transformers$pipeline(
+  "sentiment-analysis", 
+  model="seara/rubert-tiny2-russian-sentiment"
+)
+```
+
+Затем применю пайплайн для анализа текстов. Здесь я заменила параметр **max_length**, чтобы он адекватно
+мог анализировать предложенные статьи.
+
+```{r eval=FALSE}
+articles_tbl <- tibble(text = articles_ctsg_full$text)
+
+results_SA <- sentiment_pipeline(
+  as.list(articles_tbl$text),
+  truncation = TRUE,
+  max_length = as.integer(512)
+)
+
+results_tbl <- tibble(
+  label = map_chr(results_SA, function(x) x$label),
+  score = map_dbl(results_SA, function(x) x$score)
+)
+
+results_tbl <- results_tbl |> 
+  mutate(id = row_number()) |> 
+  mutate(id = as.integer(id)) |> 
+  inner_join(articles_ctsg_full, by = "id") |> 
+  select(id, title, label, score)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/results_tbl.RData")
+```
+
+И визуализирую полученную таблицу.
+
+```{r message=FALSE, warning=FALSE}
+results_tbl |> 
+  mutate(index = row_number()) |> 
+  mutate(score = case_when(label == "negative" ~ score * -1,
+                           .default = score)) |> 
+  ggplot(aes(index, score, fill = label)) +
+  geom_col(show.legend = T) + 
+  scale_x_continuous(breaks = seq(1, 13, 1)) + 
+  labs(title = "Эмоциональная тональность (BERT)",
+       x = "ID статьи",
+       y = NULL) +
+  theme_light() + 
+  theme(axis.title = element_text(size = 14, family = "Montserrat Medium"), 
+        title = element_text(size = 14, family = "Montserrat Medium"),
+        axis.text = element_text(size = 14, family = "Montserrat Medium")) + 
+  scale_fill_manual(name = "Окрас", values = c(pal[1], pal[5]))
+```
+
+Результаты показали, что по мнению BERT среди статей компаний есть две, которые имеют положительный окрас.
+Оказалось, что это 2 следующие статьи:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/articles_ctsg_full.RData")
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(gt)
+library(htmltools)
+
+truncate_words <- function(x, n = 8) {
+  x <- stringr::str_squish(x)
+  words <- stringr::str_split(x, "\\s+")
+  vapply(words, function(w) {
+    if (length(w) <= n) {
+      paste(w, collapse = " ")
+    } else {
+      paste(c(w[1:n], "…"), collapse = " ")
+    }
+  }, character(1))
+}
+
+shorten_url <- function(x) {
+  gsub(
+    "^(https?://[^/]+/[^/]+/).*",
+    "\\1...",
+    x
+  )
+}
+
+gt_tbl <- articles_ctsg_full |>
+  filter(id %in% c(4, 7)) |> 
+  mutate(
+    text = truncate_words(text,  n = 8),
+    tags = truncate_words(tags,  n = 3),
+    hubs = truncate_words(hubs,  n = 3),
+    link = shorten_url(link)
+  ) |>
+  gt() |>
+  opt_table_outline() |>
+
+  # вертикальные линии между колонками
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # горизонтальные линии между строками
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+
+  # стиль текста
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # шапка
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  )
+
+div(
+  style = "
+    max-height: 420px;
+    max-width: 100%;
+    overflow-y: auto;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 2px;
+  ",
+  gt_tbl
+)
+
+```
+
+Итак, оставляю ссылки на эти статьи:
+
+-  От идеи до первого выпуска: как и зачем мы запустили подкаст про ИБ?[@site_9]
+-  Как организовать внутренний митап, чтобы он зашел команде? Наши принципы и немного истории[@site_10].
+
+Обе эти статьи затрагивают HR-бренд, где ОЧЕНЬ важен позитивный окрас текста. Поэтому я думаю, BERT здесь не ошибся.
+
+
+## Эмбеддинги
+
+Ну и последнее, что я рассмотрю в этом проекте, это векторное представление слов. Я не буду здесь писать много, потому что на часах 2:08 и хочется спать. Ну чтош, приступим!
+
+Сейчас я аннотирую тексты всех статей компании.
+
+```{r eval = FALSE}
+ctsg_articles_annotate_all <- udpipe_annotate(russian_model, articles_ctsg_full$text, doc_id = articles_ctsg_full$id)
+
+
+ctsg_articles_pos <- ctsg_articles_annotate |> 
+  as_tibble()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+load("data/ctsg_articles_pos_all.RData")
+```
+
+
+Делаю контекстные окна. 
+
+```{r eval = FALSE}
+slide_windows <- function(tbl, window_size) {
+ skipgrams <- slider::slide(
+   tbl,
+    ~.x,
+    .after = window_size - 1,
+    .step = 1,
+    .complete = TRUE
+  )
+
+  safe_mutate <- safely(mutate)
+
+  out <- map2(skipgrams,
+              1:length(skipgrams),
+              ~ safe_mutate(.x, window_id = .y))
+
+  out  |>
+    transpose()  |>
+    pluck("result")  |>
+    compact()  |>
+    bind_rows()
+}
+```
+
+Затем убираю ненужное и применяю функцию. Затем здесь же высчитываю PMI и PPMI.
+
+```{r eval = FALSE}
+sw <- stopwords(language = "ru", source = "stopwords-iso")
+
+articles_tokens_pruned <- ctsg_articles_pos_all  |>
+  filter(
+    !lemma %in% sw,
+    !upos %in% c("NUM", "SYM", "X", "PUNCT"),
+    str_detect(lemma, "^[\\p{L}-]+$")
+  ) |>
+  select(doc_id, lemma)
+
+nested_articles <- articles_tokens_pruned |>
+  nest(lemma = c(lemma))
+
+articles_windows <- nested_articles |>
+  mutate(lemma = map(lemma, slide_windows, 4L))  |>
+  unnest(lemma) |>
+  unite(window_id, doc_id, window_id)
+
+articles_pmi  <- articles_windows  |>
+  pairwise_pmi(lemma, window_id)
+
+articles_ppmi <- articles_pmi |>
+  mutate(ppmi = case_when(pmi < 0 ~ 0,
+                          .default = pmi))
+```
+
+```{r echo = FALSE}
+load("data/articles_ppmi.RData")
+```
+
+
+Давайте посмотрим на полученную таблицу. Для preview я взяла 10 последних строк. Мне нравится, как получилось! Полную таблицу как всегда предлагаю забрать по ВСТАВИТЬ_ссылке.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(gt)
+
+gt_tbl <- articles_ppmi |>
+  tail(10) |>
+  gt() |>
+  opt_table_outline() |>
+
+  # вертикальные линии между колонками
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+  tab_style(
+    style = cell_borders(
+      sides = "right",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_column_labels()
+  ) |>
+
+  # горизонтальные линии между строками
+  tab_style(
+    style = cell_borders(
+      sides = "bottom",
+      color = "#e5e7eb",
+      weight = px(1)
+    ),
+    locations = cells_body()
+  ) |>
+
+  # стиль текста
+  tab_style(
+    style = cell_text(color = "#2f3a45"),
+    locations = cells_body()
+  ) |>
+
+  # шапка
+  tab_style(
+    style = list(
+      cell_fill(color = "#eef5ff"),
+      cell_text(weight = "bold", color = "#2f3a45")
+    ),
+    locations = cells_column_labels()
+  )
+
+gt_tbl
+```
+
+Теперь визуализирую полученные результаты.
+
+```{r message=FALSE, warning=FALSE}
+set.seed(123)
+word_emb <- articles_ppmi |>
+  widely_svd(item1, item2, ppmi,
+             weight_d = FALSE, nv = 100)
+
+pal2 <- RColorBrewer::brewer.pal(9, "Blues")[5:9]
+
+word_emb |>
+  filter(dimension < 4) |>
+  mutate(dimension = factor(dimension)) |>
+  group_by(dimension) |>
+  top_n(5, abs(value)) |>
+  ungroup() |>
+  ggplot(aes(reorder_within(item1, value, dimension), value, fill = dimension)) +
+  geom_col(alpha = 0.8, show.legend = FALSE) +
+  facet_wrap(~dimension, scales = "free_y", ncol = 3) +
+  scale_x_reordered() +
+  scale_fill_manual(values = pal2) +
+  coord_flip() +
+  labs(
+    x = NULL,
+    y = NULL,
+    title = "Первые 3 главные тематики статей за все время",
+    subtitle = "Топ-5 слов"
+  ) +
+  theme_light() +
+  theme(text = element_text(size = 14, family = "Montserrat Medium"),
+        strip.background = element_rect(fill = "#D0CECE"),
+        strip.text = element_text(color = "black"))
+```
+
+Честно говоря, мне не очень нравятся полученные результаты. Во втором топике слово **руководитель** явно выбивается из контекста, а во втором топике слова **партнер** и **РАМ** тоже явно лишние. Тем не менее первый топик получился совершенно ярко выраженным и легко интерпретируемым. В нем все про командную работу, трудоустройство и особенности найма в ИТ. 
+
+С другой стороны, я понимаю, что на 13 статьях не построишь адекватно топики, потому что данных слишком мало. Именно поэтому я так и не решилась на проведение тематического моделирования этого пула статей.
+
+Можно будет масштабировать исследования и применить его не только к статьям компании, а к статьям на Хабре за 2025 год! Было бы интересно посмотреть, что так получится)
+
+Спасибо большое, что дочитали до конца! И прошу прощения за возможные очепятки. Буду очень рада обратной связи)
