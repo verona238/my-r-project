@@ -764,7 +764,7 @@ result <- tibble(
 Здесь мы видим, какие статьи входят во все топы, но еще не хватает некоторой структуры.
 
 
-```{r message=FALSE, warning=FALSE}
+```{r echo = FALSE, message=FALSE, warning=FALSE}
 library(knitr)
 library(kableExtra)
 library(gt)

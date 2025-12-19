@@ -37,7 +37,9 @@ library(wordcloud)
 library(RColorBrewer)
 library(extrafont)
 library(widyr)
-
+library(reticulate)
+library(slider)
+library(irlba)
 ```
 
 Теперь загружаю широко известную UdPipe-модель SynTagRus для аннотирования текстов самых популярных статей. Это позволит сделать мне выводы о том, какие темы вызывали у аудитории наиболее бурный интерес.
@@ -470,15 +472,14 @@ div(
 
 ## Эмбеддинги
 
-Ну и последнее, что я рассмотрю в этом проекте, это векторное представление слов. Я не буду здесь писать много, потому что на часах 2:08 и хочется спать. Ну чтош, приступим!
+Ну и последнее, что я рассмотрю в этом проекте, это векторное представление слов. Ну чтош, приступим!
 
 Сейчас я аннотирую тексты всех статей компании.
 
 ```{r eval = FALSE}
 ctsg_articles_annotate_all <- udpipe_annotate(russian_model, articles_ctsg_full$text, doc_id = articles_ctsg_full$id)
 
-
-ctsg_articles_pos <- ctsg_articles_annotate |> 
+ctsg_articles_pos_all <- ctsg_articles_annotate_all |> 
   as_tibble()
 ```
 
@@ -547,7 +548,7 @@ load("data/articles_ppmi.RData")
 ```
 
 
-Давайте посмотрим на полученную таблицу. Для preview я взяла 10 последних строк. Мне нравится, как получилось! Полную таблицу как всегда предлагаю забрать по [ссылке](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/articles_ppmi.RData).
+Давайте посмотрим на полученную таблицу. Для preview я взяла 10 последних строк (через tail). Мне нравится, как получилось! Полную таблицу как всегда предлагаю забрать по [ссылке](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/articles_ppmi.RData).
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
