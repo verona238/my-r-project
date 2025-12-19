@@ -58,7 +58,7 @@ ctsg_articles_pos <- ctsg_articles_annotate |>
 ```
 
 
-Получается примерно такая таблица (при визуализации таблицы я убрала столбец **sentence**, чтобы выглядело опрятнее на странице). Полный вариант тиббла можно забрать ДОБАВИТЬ ССЫЛКУ_здесь.
+Получается примерно такая таблица (при визуализации таблицы я убрала столбец **sentence**, чтобы выглядело опрятнее на странице). Полный вариант тиббла можно забрать [здесь](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/ctsg_articles_pos.RData).
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -98,7 +98,7 @@ ctsg_articles_pos |>
 )
 ```
 
-Создам еще один тиббл, в котором будут храниться все токены без стоп-слов.
+Создам еще один [тиббл](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/result_words_tidy.RData), в котором будут храниться все токены без стоп-слов.
 
 
 ```{r eval = FALSE}
@@ -203,7 +203,7 @@ tokens_tf <- ctsg_articles_pos |>
   arrange(tf)
 ```
 
-Как всегда представляю только небольшой фрагмент тиббла. Полную таблицу можно забрать по ВСТАВИТЬссылке.
+Как всегда представляю только небольшой фрагмент тиббла. Полную таблицу можно забрать по [ссылке](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/tokens_tf.RData).
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 load("data/tokens_tf.RData")
@@ -547,7 +547,7 @@ load("data/articles_ppmi.RData")
 ```
 
 
-Давайте посмотрим на полученную таблицу. Для preview я взяла 10 последних строк. Мне нравится, как получилось! Полную таблицу как всегда предлагаю забрать по ВСТАВИТЬ_ссылке.
+Давайте посмотрим на полученную таблицу. Для preview я взяла 10 последних строк. Мне нравится, как получилось! Полную таблицу как всегда предлагаю забрать по [ссылке](https://github.com/verona238/my-r-project/raw/refs/heads/main/data/articles_ppmi.RData).
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
